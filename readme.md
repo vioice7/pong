@@ -1,79 +1,113 @@
-````
-# PONG GAMING
+# Refined Pong (Pygame)
 
-A minimalist, high-performance **Pong clone** built with **Python** and **Pygame**.  
-This version features dynamic ball physics, increasing difficulty, and a refined black-and-white aesthetic.
+This project is a polished single-player Pong game written in Python using Pygame. The player controls the left paddle, while the right paddle is controlled by an AI opponent. The game focuses on smooth physics, controlled bounce angles, increasing difficulty, and simple synthesized sound effects.
 
 ---
 
-## Features
+## Requirements
 
-- **Dynamic Physics**  
-  Ball trajectory changes based on where it strikes the paddle.  
-  Hitting the edges creates sharper angles.
+* Python 3.8+
+* Pygame
 
-- **Difficulty Scaling**  
-  The ball speed increases by **5%** with every successful return, ensuring fast-paced gameplay.
-
-- **Arcade UI**  
-  Includes a *“Press Space”* start sequence and a professional scoring display with dashed center lines.
-
-- **Clean Code**  
-  Fully commented and organized for easy modification or educational use.
-
----
-
-## Prerequisites
-
-You must have **Python 3.x** and the **Pygame** library installed.
+Install dependencies with:
 
 ```bash
 pip install pygame
-````
+```
+
+---
+
+## How to Run
+
+From the project directory:
+
+```bash
+python main.py
+```
+
+(The filename may differ depending on how you saved the script.)
 
 ---
 
 ## Controls
 
-| Action             | Left Player (P1) | Right Player (P2) |
-| ------------------ | ---------------- | ----------------- |
-| Move Up            | Q                | P                 |
-| Move Down          | A                | L                 |
-| Start / Serve Ball | SPACE            | SPACE             |
-| Reset Game / Score | R                | R                 |
+* Up Arrow: Move left paddle up
+* Down Arrow: Move left paddle down
+* Space: Start the round
+* R: Reset scores (only when the game is not running)
+* Close Window: Quit the game
 
 ---
 
-## Installation & Execution
+## Gameplay Overview
 
-1. Clone the repository or download the source code.
-2. Open your terminal or command prompt.
-3. Navigate to the project directory.
-4. Run the game:
-
-```bash
-python pong.py
-```
+* The game starts paused. Press Space to launch the ball.
+* Each time the ball hits a paddle, its speed increases slightly up to a maximum limit.
+* The angle of the ball depends on its current direction and paddle movement.
+* The AI paddle reacts only when the ball is moving toward it and has a small reaction delay to keep gameplay fair.
+* A point is scored when the opponent fails to return the ball.
 
 ---
 
-## Gameplay Mechanics
+## Game Mechanics Explained
 
-* **Scoring**
-  The first player to miss the ball gives a point to the opponent.
+### Ball Physics
 
-* **The Serve**
-  The ball resets to the center and serves toward the player who just conceded a point.
+* The ball uses floating-point positions for smooth movement.
+* Bounce angles are clamped to prevent near-vertical or near-horizontal trajectories.
+* After wall collisions, the angle is slightly flattened to keep rallies interesting.
+* A minimum vertical speed is enforced to avoid endless horizontal motion.
 
-* **Physics Engine**
-  The ball’s vertical velocity is calculated as:
+### Paddle Collisions
 
-```text
-Velocity = (Hit Position / Half Paddle Height) * Base Speed
-```
+* Paddle hits increase ball speed gradually.
+* Player paddle movement (up or down) slightly modifies the bounce angle, allowing controlled shots.
+* Maximum bounce angle is limited to maintain predictable gameplay.
+
+### AI Behavior
+
+* The AI paddle only reacts when the ball is traveling toward it.
+* A reaction zone prevents perfect tracking, making the AI beatable.
+* AI speed is slightly slower than the player’s potential reaction time.
 
 ---
 
-## License
+## Sound System
 
-This project is open-source and available under the **MIT License** © 2026 .
+All sounds are generated programmatically at startup:
+
+* Wall hit: Low-frequency beep
+* Paddle hit: Higher-frequency beep
+* Score: Longer, lower-frequency beep
+
+Pre-generating sounds avoids runtime stuttering.
+
+---
+
+## Screen Layout
+
+* White background with a black border
+* Center dividing line
+* Left and right scores displayed at the top
+* Start prompt shown when the game is paused
+
+---
+
+## Configuration
+
+Key values can be adjusted at the top of the script:
+
+* Window size and FPS
+* Paddle size and speed
+* Ball speed, acceleration, and angle limits
+* AI difficulty parameters
+
+This makes it easy to tweak difficulty or gameplay feel.
+
+---
+
+## Notes
+
+* The game loop runs at a fixed frame rate for consistent physics.
+* Resetting the game recenters paddles and relaunches the ball with a controlled starting angle.
+* The project is designed as a clean, extensible base for adding menus, multiplayer, or visual effects.
