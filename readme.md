@@ -22,10 +22,8 @@ pip install pygame
 From the project directory:
 
 ```bash
-python main.py
+python pong.py
 ```
-
-(The filename may differ depending on how you saved the script.)
 
 ---
 
@@ -44,7 +42,7 @@ python main.py
 * The game starts paused. Press Space to launch the ball.
 * Each time the ball hits a paddle, its speed increases slightly up to a maximum limit.
 * The angle of the ball depends on its current direction and paddle movement.
-* The AI paddle reacts only when the ball is moving toward it and has a small reaction delay to keep gameplay fair.
+* The AI paddle reacts only when the ball is moving toward it and ignores small offsets (a dead zone) to keep gameplay fair.
 * A point is scored when the opponent fails to return the ball.
 
 ---
@@ -68,7 +66,7 @@ python main.py
 
 * The AI paddle only reacts when the ball is traveling toward it.
 * A reaction zone prevents perfect tracking, making the AI beatable.
-* AI speed is slightly slower than the player’s potential reaction time.
+* The AI paddle moves slightly slower than the player's paddle.
 
 ---
 

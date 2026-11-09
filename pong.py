@@ -1,6 +1,7 @@
 import pygame
 import sys
 import math
+import random
 
 # ================= CONFIG =================
 WIDTH, HEIGHT = 800, 450
@@ -42,14 +43,14 @@ font = pygame.font.SysFont(None, 48)
 # ---------- PRE-GENERATE SOUNDS ----------
 # Generating sounds once at startup prevents frame-stuttering
 def create_beep(freq, duration):
-    sample_rate = 44100
+    # Match the mixer's actual format so length and pitch come out as requested
+    sample_rate, _, channels = pygame.mixer.get_init()
     n_samples = int(sample_rate * duration / 1000)
-    buf = bytearray(n_samples * 2)
+    buf = bytearray()
     for i in range(n_samples):
         t = i / sample_rate
         wave = int(32767 * 0.25 * math.sin(2 * math.pi * freq * t))
-        buf[2*i] = wave & 0xff
-        buf[2*i+1] = (wave >> 8) & 0xff
+        buf += wave.to_bytes(2, "little", signed=True) * channels
     return pygame.mixer.Sound(buffer=bytes(buf))
 
 SOUND_WALL = create_beep(300, 80)
@@ -64,24 +65,26 @@ ball = pygame.Rect(0, 0, BALL_SIZE, BALL_SIZE)
 # Movement variables (using floats for precision)
 ball_x, ball_y = float(WIDTH//2), float(HEIGHT//2)
 ball_dx, ball_dy = 0.0, 0.0
+right_paddle_y = float(right_paddle.y)  # Rect only stores whole pixels
 left_score = 0
 right_score = 0
 game_started = False
 last_paddle_hit = None
 
 def reset_positions():
-    global ball_dx, ball_dy, ball_x, ball_y, game_started, last_paddle_hit
+    global ball_dx, ball_dy, ball_x, ball_y, game_started, last_paddle_hit, right_paddle_y
     left_paddle.centery = HEIGHT // 2
     right_paddle.centery = HEIGHT // 2
+    right_paddle_y = float(right_paddle.y)
     
-    ball_x, ball_y = WIDTH // 2, HEIGHT // 2
-    ball.center = (int(ball_x), int(ball_y))
+    # ball_x / ball_y track the ball's top-left corner
+    ball_x, ball_y = WIDTH // 2 - BALL_SIZE // 2, HEIGHT // 2 - BALL_SIZE // 2
+    ball.topleft = (ball_x, ball_y)
 
     # Initial launch angle
     angle = math.radians(20)
-    direction = -1 if pygame.time.get_ticks() % 2 else 1
-    ball_dx = direction * BALL_START_SPEED * math.cos(angle)
-    ball_dy = BALL_START_SPEED * math.sin(angle)
+    ball_dx = random.choice((-1, 1)) * BALL_START_SPEED * math.cos(angle)
+    ball_dy = random.choice((-1, 1)) * BALL_START_SPEED * math.sin(angle)
 
     game_started = False
     last_paddle_hit = None
@@ -135,23 +138,23 @@ while True:
 
     # Left Paddle (Player)
     if keys[LEFT_UP] and left_paddle.top > 10:
-        left_paddle.y -= PADDLE_SPEED
+        left_paddle.top = max(10, left_paddle.top - PADDLE_SPEED)
         moving_up = True
     if keys[LEFT_DOWN] and left_paddle.bottom < HEIGHT - 10:
-        left_paddle.y += PADDLE_SPEED
+        left_paddle.bottom = min(HEIGHT - 10, left_paddle.bottom + PADDLE_SPEED)
         moving_down = True
 
     # Right Paddle (AI)
     if game_started and ball_dx > 0:
         if abs(right_paddle.centery - ball.centery) > AI_REACTION_ZONE:
             if right_paddle.centery < ball.centery:
-                right_paddle.y += AI_PADDLE_SPEED
+                right_paddle_y += AI_PADDLE_SPEED
             else:
-                right_paddle.y -= AI_PADDLE_SPEED
+                right_paddle_y -= AI_PADDLE_SPEED
         
         # Keep AI in bounds
-        right_paddle.top = max(10, right_paddle.top)
-        right_paddle.bottom = min(HEIGHT - 10, right_paddle.bottom)
+        right_paddle_y = max(10.0, min(HEIGHT - 10.0 - PADDLE_HEIGHT, right_paddle_y))
+        right_paddle.y = round(right_paddle_y)
 
     # Ball Physics
     if game_started:
@@ -178,12 +181,13 @@ while True:
         speed = min(math.hypot(ball_dx, ball_dy) + BALL_SPEED_INCREMENT, BALL_MAX_SPEED)
         
         angle = math.atan2(ball_dy, abs(ball_dx))
-        if moving_up: angle -= math.radians(12)
-        elif moving_down: angle += math.radians(12)
+        if moving_up: angle -= math.radians(21)
+        elif moving_down: angle += math.radians(21)
         
         angle = max(-MAX_BOUNCE_ANGLE, min(MAX_BOUNCE_ANGLE, angle))
         ball_dx = speed * math.cos(angle)
         ball_dy = speed * math.sin(angle)
+        clamp_ball_angle()
         SOUND_PADDLE.play()
         last_paddle_hit = "left"
 
@@ -195,6 +199,7 @@ while True:
         angle = math.atan2(ball_dy, abs(ball_dx))
         ball_dx = -speed * math.cos(angle)
         ball_dy = speed * math.sin(angle)
+        clamp_ball_angle()
         SOUND_PADDLE.play()
         last_paddle_hit = "right"
 
