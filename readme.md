@@ -33,6 +33,8 @@ python pong.py
 * Down Arrow: Move left paddle down
 * Space: Start the round
 * R: Reset scores (only when the game is not running)
+* 9: Bend the paddles towards a negative curve, `(` on your paddle
+* 0: Bend the paddles towards a positive curve, `)` on your paddle
 * Close Window: Quit the game
 
 ---
@@ -61,6 +63,14 @@ python pong.py
 * Paddle hits increase ball speed gradually.
 * Player paddle movement (up or down) slightly modifies the bounce angle, allowing controlled shots.
 * Maximum bounce angle is limited to maintain predictable gameplay.
+
+### Paddle Curve
+
+* The curve goes from -5 to +5 and can be changed at any time, including during a rally.
+* The AI paddle is a mirror image of the player's: `) (` when positive, `( )` when negative.
+* A positive curve bulges towards the ball and spreads shots outward, away from the paddle's middle.
+* A negative curve cups the ball and pulls shots inward, towards the paddle's middle.
+* The further from the middle the ball lands, the more the curve changes its angle.
 
 ### AI Behavior
 

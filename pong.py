@@ -15,6 +15,8 @@ LEFT_UP = pygame.K_UP
 LEFT_DOWN = pygame.K_DOWN
 START_GAME = pygame.K_SPACE
 RESET_GAME = pygame.K_r
+CURVE_NEGATIVE = pygame.K_9  # bend towards "("
+CURVE_POSITIVE = pygame.K_0  # bend towards ")"
 
 # ---------- PADDLE & BALL ----------
 PADDLE_WIDTH = 12
@@ -22,6 +24,8 @@ PADDLE_HEIGHT = 90
 PADDLE_SPEED = 7
 AI_PADDLE_SPEED = 6.5
 AI_REACTION_ZONE = 50
+MAX_PADDLE_CURVE = 5        # curve steps in each direction
+CURVE_PIXELS_PER_STEP = 3   # how deep the bend gets per step
 
 BALL_SIZE = 14
 BALL_START_SPEED = 5.0
@@ -39,6 +43,7 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Refined Pong")
 clock = pygame.time.Clock()
 font = pygame.font.SysFont(None, 48)
+small_font = pygame.font.SysFont(None, 24)
 
 # ---------- PRE-GENERATE SOUNDS ----------
 # Generating sounds once at startup prevents frame-stuttering
@@ -70,6 +75,7 @@ left_score = 0
 right_score = 0
 game_started = False
 last_paddle_hit = None
+paddle_curve = 0  # negative: "(" on the player's paddle, positive: ")"
 
 def reset_positions():
     global ball_dx, ball_dy, ball_x, ball_y, game_started, last_paddle_hit, right_paddle_y
@@ -118,6 +124,50 @@ def clamp_ball_angle(flatten=False):
         ball_dx = side * math.sqrt(max(speed**2 - ball_dy**2, 0.1))
 
 
+# ---------- CURVED PADDLES ----------
+# Positions along a paddle are written as t: -1 at the top, 0 at the middle, 1 at the bottom.
+# The AI paddle is a mirror image of the player's, so a curve plays the same on both sides.
+
+def curve_offset(t):
+    """How far the paddle is pushed towards the centre of the court at t."""
+    depth = paddle_curve * CURVE_PIXELS_PER_STEP
+    return depth * (1 - t * t) if depth > 0 else -depth * t * t
+
+def curve_deflection(t):
+    """Change in bounce angle at t. Tilting a mirror by x turns the reflection by 2x."""
+    depth = paddle_curve * CURVE_PIXELS_PER_STEP
+    return 2 * math.atan(2 * depth * t / (PADDLE_HEIGHT / 2))
+
+def paddle_face_x(paddle, t):
+    """X position of the side of the paddle that faces the ball, at t."""
+    if paddle is left_paddle:
+        return paddle.right + curve_offset(t)
+    return paddle.left - curve_offset(t)
+
+def ball_hit_position(paddle):
+    return max(-1.0, min(1.0, (ball.centery - paddle.centery) / (PADDLE_HEIGHT / 2)))
+
+def ball_touches_paddle(paddle, t):
+    if ball.bottom <= paddle.top or ball.top >= paddle.bottom:
+        return False
+    face = paddle_face_x(paddle, t)
+    if paddle is left_paddle:
+        return face - PADDLE_WIDTH < ball.right and ball.left < face
+    return face < ball.right and ball.left < face + PADDLE_WIDTH
+
+def draw_paddle(paddle):
+    # Rect edges are exclusive, so subtract 1 to match the size of a flat paddle
+    direction = 1 if paddle is left_paddle else -1
+    near_edge, far_edge = [], []
+    for i in range(41):
+        t = -1 + i / 20
+        y = paddle.top + (paddle.height - 1) * (t + 1) / 2
+        x = direction * curve_offset(t)
+        near_edge.append((paddle.left + x, y))
+        far_edge.append((paddle.right - 1 + x, y))
+    pygame.draw.polygon(screen, BLACK, near_edge + far_edge[::-1])
+
+
 reset_positions()
 
 # ---------- MAIN LOOP ----------
@@ -132,6 +182,10 @@ while True:
             if event.key == RESET_GAME and not game_started:
                 left_score = right_score = 0
                 reset_positions()
+            if event.key == CURVE_NEGATIVE:
+                paddle_curve = max(-MAX_PADDLE_CURVE, paddle_curve - 1)
+            if event.key == CURVE_POSITIVE:
+                paddle_curve = min(MAX_PADDLE_CURVE, paddle_curve + 1)
 
     keys = pygame.key.get_pressed()
     moving_up = moving_down = False
@@ -176,11 +230,12 @@ while True:
 
     # Paddle Collisions
     # Left Paddle
-    if ball.colliderect(left_paddle) and ball_dx < 0:
-        ball_x = left_paddle.right
+    hit_position = ball_hit_position(left_paddle)
+    if ball_dx < 0 and ball_touches_paddle(left_paddle, hit_position):
+        ball_x = paddle_face_x(left_paddle, hit_position)
         speed = min(math.hypot(ball_dx, ball_dy) + BALL_SPEED_INCREMENT, BALL_MAX_SPEED)
-        
-        angle = math.atan2(ball_dy, abs(ball_dx))
+
+        angle = math.atan2(ball_dy, abs(ball_dx)) + curve_deflection(hit_position)
         if moving_up: angle -= math.radians(21)
         elif moving_down: angle += math.radians(21)
         
@@ -192,11 +247,13 @@ while True:
         last_paddle_hit = "left"
 
     # Right Paddle
-    if ball.colliderect(right_paddle) and ball_dx > 0:
-        ball_x = right_paddle.left - BALL_SIZE
+    hit_position = ball_hit_position(right_paddle)
+    if ball_dx > 0 and ball_touches_paddle(right_paddle, hit_position):
+        ball_x = paddle_face_x(right_paddle, hit_position) - BALL_SIZE
         speed = min(math.hypot(ball_dx, ball_dy) + BALL_SPEED_INCREMENT, BALL_MAX_SPEED)
-        
-        angle = math.atan2(ball_dy, abs(ball_dx))
+
+        angle = math.atan2(ball_dy, abs(ball_dx)) + curve_deflection(hit_position)
+        angle = max(-MAX_BOUNCE_ANGLE, min(MAX_BOUNCE_ANGLE, angle))
         ball_dx = -speed * math.cos(angle)
         ball_dy = speed * math.sin(angle)
         clamp_ball_angle()
@@ -218,9 +275,9 @@ while True:
     pygame.draw.rect(screen, BLACK, (0, 0, WIDTH, HEIGHT), 10) # Border
     pygame.draw.line(screen, BLACK, (WIDTH//2, 10), (WIDTH//2, HEIGHT-10), 2) # Center line
 
-    pygame.draw.rect(screen, BLACK, left_paddle)
-    pygame.draw.rect(screen, BLACK, right_paddle)
-    
+    draw_paddle(left_paddle)
+    draw_paddle(right_paddle)
+
     # Drawing ball with a small outline for style
     pygame.draw.ellipse(screen, WHITE, ball)
     pygame.draw.ellipse(screen, BLACK, ball, 2)
@@ -228,6 +285,8 @@ while True:
     # UI
     screen.blit(font.render(str(left_score), True, BLACK), (WIDTH//4, 20))
     screen.blit(font.render(str(right_score), True, BLACK), (WIDTH*3//4, 20))
+    curve_label = f"CURVE {paddle_curve:+d}" if paddle_curve else "CURVE 0"
+    screen.blit(small_font.render(curve_label + "   [9] [0]", True, BLACK), (WIDTH//4, 62))
 
     if not game_started:
         txt = font.render("PRESS SPACE TO START", True, BLACK)
